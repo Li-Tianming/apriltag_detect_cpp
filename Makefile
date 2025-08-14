@@ -4,9 +4,10 @@ CXXFLAGS := -std=c++11 -Wall -Wextra
 
 # OpenCV 配置
 OPENCV_FLAGS := $(shell pkg-config --cflags opencv4)
-OPENCV_LIBS := $(shell pkg-config --libs opencv4)
+OPENCV_LIBS := $(shell pkg-config --libs opencv4) -L ./lib/aarch64/static -ltstc_usbcam -ludev -pthread
 
 # 目标设置
+DIR_INC	:= ./include/
 TARGET := opencv_program
 SRC := main.cpp
 OBJ := $(SRC:.cpp=.o)
