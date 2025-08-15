@@ -346,29 +346,7 @@ int main(int argc, char *argv[])
 
         if(pFrame != NULL)
         {
-            char path[256];
-#if 0
-            if(pFrame->PixFormat.u_PixFormat == 0)
-                snprintf(path,256,"%d.jpg",pFrame->index);
-            else
-                snprintf(path,256,"%d.bmp",pFrame->index);
-
-            FILE    *File_fd = fopen(path,"w+");
-
-            if(File_fd == NULL)
-            {
-                continue;
-            }
-
-
-            fwrite(pFrame->pMem,pFrame->buffer.bytesused,1,File_fd);
-
-
-            fflush(File_fd);
-
-            fclose(File_fd);
-#endif
-            // displayJpegFromVoidBuffer(pFrame->pMem, pFrame->buffer.bytesused);
+           // displayJpegFromVoidBuffer(pFrame->pMem, pFrame->buffer.bytesused);
             // 转换并获取cv::Mat
             cv::Mat result_image = jpegBufferToMat(pFrame->pMem, pFrame->buffer.bytesused);
 
@@ -455,25 +433,3 @@ int main(int argc, char *argv[])
 
 }
 
- 
-// int main()
-// {
-//    //  std::string image_path = samples::findFile("starry_night.jpg");
-//     Mat img = imread("starry_night.jpg", IMREAD_COLOR);
- 
-//     if(img.empty())
-//     {
-//         std::cout << "Could not read the image: " << std::endl;
-//         return 1;
-//     }
- 
-//     imshow("Display window", img);
-//     int k = waitKey(0); // Wait for a keystroke in the window
- 
-//     if(k == 's')
-//     {
-//         imwrite("starry_night.png", img);
-//     }
- 
-//     return 0;
-// }
