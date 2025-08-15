@@ -18,7 +18,77 @@
 #include <apriltag/tag36h11.h>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include <iostream>
+#include <chrono>
+#include <iomanip>
+#include <thread>
+
 using namespace cv;
+
+class PrecisionTimer {
+public:
+    using Clock = std::chrono::high_resolution_clock;
+    using TimePoint = std::chrono::time_point<Clock>;
+    using Milliseconds = std::chrono::milliseconds;
+    using Microseconds = std::chrono::microseconds;
+    using Nanoseconds = std::chrono::nanoseconds;
+
+    // 开始计时
+    void start() {
+        start_time = Clock::now();
+        running = true;
+    }
+
+    // 停止计时
+    void stop() {
+        end_time = Clock::now();
+        running = false;
+    }
+
+    // 获取经过的毫秒数（默认精度）
+    double elapsed_ms() const {
+        return elapsed<Milliseconds>();
+    }
+
+    // 获取经过的微秒数
+    double elapsed_us() const {
+        return elapsed<Microseconds>();
+    }
+
+    // 获取经过的纳秒数
+    int64_t elapsed_ns() const {
+        return elapsed<Nanoseconds>();
+    }
+
+    // 格式化输出时间间隔（自动选择最佳单位）
+    void print(const std::string& event_name = "") const {
+        double ms = elapsed_ms();
+        
+        std::cout << std::fixed << std::setprecision(3);
+        if (ms >= 1000) {
+            std::cout << "[" << event_name << "] " << ms/1000 << " seconds\n";
+        } else if (ms >= 1) {
+            std::cout << "[" << event_name << "] " << ms << " ms\n";
+        } else {
+            double us = elapsed_us();
+            if (us >= 1) {
+                std::cout << "[" << event_name << "] " << us << " μs\n";
+            } else {
+                std::cout << "[" << event_name << "] " << elapsed_ns() << " ns\n";
+            }
+        }
+    }
+
+private:
+    template<typename Duration>
+    auto elapsed() const -> typename Duration::rep {
+        auto end = running ? Clock::now() : end_time;
+        return std::chrono::duration_cast<Duration>(end - start_time).count();
+    }
+
+    TimePoint start_time, end_time;
+    bool running = false;
+};
 
 static int32_t api_get_thread_policy (pthread_attr_t *attr)
 {
@@ -96,8 +166,10 @@ void* USBCam_STREAM_DEAL(void*pUSBCam)
     Pix_Format Cfg;
 
     Cfg.u_PixFormat = 0;
-    Cfg.u_Width = 1280;
-    Cfg.u_Height = 800;
+    // Cfg.u_Width = 1280;
+    // Cfg.u_Height = 800;
+    Cfg.u_Width = 800;
+    Cfg.u_Height = 600;
     Cfg.u_Fps = 120;
 
     TST_USBCam_Video_DEAL_WITH         (pUSBCam,Cfg);
@@ -340,12 +412,17 @@ int main(int argc, char *argv[])
     td->quad_sigma = 0.0;     // 高斯模糊去噪
     td->nthreads = 4;         // 使用4个线程
 
+    PrecisionTimer timer;
+
     while(EXIT)
     {
         Frame_Buffer_Data*pFrame = TST_USBCam_GET_FRAME_BUFF(pUSBCam,0);
 
         if(pFrame != NULL)
         {
+            // start performace analysize
+            timer.start();
+
            // displayJpegFromVoidBuffer(pFrame->pMem, pFrame->buffer.bytesused);
             // 转换并获取cv::Mat
             cv::Mat result_image = jpegBufferToMat(pFrame->pMem, pFrame->buffer.bytesused);
@@ -408,6 +485,10 @@ int main(int argc, char *argv[])
             
             // 等待按键
             // std::cout << "按任意键退出..." << std::endl;
+
+            timer.stop();
+            std::cout << "Calculation is " << 1000 / timer.elapsed_ms() << " fps\n";
+
             auto key = cv::waitKey(1);
             if(key == 27){
                 //escpae key
