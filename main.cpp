@@ -167,7 +167,11 @@ void* USBCam_STREAM_DEAL(void*pUSBCam)
 
     Cfg.u_PixFormat = 0;
     // Cfg.u_Width = 1280;
-    // Cfg.u_Height = 800;
+    // Cfg.u_Height = 800;    
+
+    // Cfg.u_Width = 1024;
+    // Cfg.u_Height = 768;
+
     Cfg.u_Width = 800;
     Cfg.u_Height = 600;
     Cfg.u_Fps = 120;
@@ -292,6 +296,54 @@ cv::Mat jpegBufferToMat(const void* jpeg_buffer, size_t buffer_size) {
     return decoded_image;
 }
 
+void displayCenteredText(const std::string& text, 
+                        cv::Scalar bg_color = cv::Scalar(255, 0, 0),  // 默认蓝色背景 (BGR格式)
+                        cv::Scalar text_color = cv::Scalar(255, 255, 255),  // 白色文字
+                        int window_width = 800, 
+                        int window_height = 600) {
+
+    // 创建指定大小的彩色图像（蓝底）
+    cv::Mat image(window_height, window_width, CV_8UC3, bg_color);
+
+    // 设置字体属性
+    int font_face = cv::FONT_HERSHEY_DUPLEX;
+    double font_scale = 2.0;
+    int thickness = 3;
+
+    // 获取文本的包围盒大小
+    int baseline = 0;
+    cv::Size text_size = cv::getTextSize(text, font_face, font_scale, thickness, &baseline);
+
+    // 计算文本位置（居中）
+    cv::Point text_org(
+        (window_width - text_size.width) / 2,
+        (window_height + text_size.height) / 2  // OpenCV的y坐标从顶部开始
+    );
+
+    // 添加文字阴影效果（增强可读性）
+    cv::putText(image, text, text_org + cv::Point(2, 2), 
+               font_face, font_scale, cv::Scalar(0, 0, 0),  // 黑色阴影
+               thickness, cv::LINE_AA);
+
+    // 绘制主文字
+    cv::putText(image, text, text_org, 
+               font_face, font_scale, text_color,
+               thickness, cv::LINE_AA);
+
+    // 创建可调整大小的窗口
+    cv::namedWindow("Display Window", cv::WINDOW_NORMAL);
+    cv::resizeWindow("Display Window", window_width, window_height);
+
+    // 显示图像
+    cv::imshow("Display Window", image);
+
+    // // 等待按键
+    // std::cout << "按任意键退出..." << std::endl;
+    // cv::waitKey(0);
+    // cv::destroyAllWindows();
+}
+
+
 int main(int argc, char *argv[])
 {
 
@@ -414,9 +466,16 @@ int main(int argc, char *argv[])
 
     PrecisionTimer timer;
 
+    std::string id_to_display = "X";
+
+    PrecisionTimer id_display_timer;
+
+    displayCenteredText("X");
+
     while(EXIT)
     {
         Frame_Buffer_Data*pFrame = TST_USBCam_GET_FRAME_BUFF(pUSBCam,0);
+
 
         if(pFrame != NULL)
         {
@@ -465,6 +524,21 @@ int main(int argc, char *argv[])
                             1,
                             cv::Scalar(255, 0, 0),
                             2);
+
+                // print detected id
+                std::cout << "detected id: "<< std::to_string(det->id) << std::endl;
+
+                id_to_display = std::to_string(det->id);
+                id_display_timer.start();
+                displayCenteredText(id_to_display);
+
+            }
+
+            if(id_display_timer.elapsed_ms() > 3000){
+                // display id 3 second
+
+                id_display_timer.stop();
+                displayCenteredText("X");
             }
 
             // 释放检测结果
@@ -475,7 +549,7 @@ int main(int argc, char *argv[])
             cv::namedWindow("JPEG Viewer", cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
             
             // // 显示图像
-            cv::imshow("JPEG Viewer", frame);
+            // cv::imshow("JPEG Viewer", frame);
             // cv::imshow("JPEG Viewer", result_image);
             
             // // 打印图像信息
@@ -483,15 +557,13 @@ int main(int argc, char *argv[])
             //           << result_image.cols << "x" << result_image.rows 
             //           << " 通道数: " << result_image.channels() << std::endl;
             
-            // 等待按键
-            // std::cout << "按任意键退出..." << std::endl;
-
             timer.stop();
-            std::cout << "Calculation is " << 1000 / timer.elapsed_ms() << " fps\n";
+            std::cout << "detection is " << 1000 / timer.elapsed_ms() << " fps\n";
 
+            // 等待按键
             auto key = cv::waitKey(1);
             if(key == 27){
-                //escpae key
+                //escpae key 退出
                 EXIT = 0;
                 // 销毁窗口
                 cv::destroyAllWindows();
@@ -500,7 +572,7 @@ int main(int argc, char *argv[])
             // if(pFrame->index >= 1000)
             // EXIT = 0;
 
-            fprintf(stderr,"pFrame->index:%02d PixFormat.u_Fps.:%d\r\n",pFrame->index,pFrame->PixFormat.u_Fps);
+            // fprintf(stderr,"pFrame->index:%02d PixFormat.u_Fps.:%d\r\n",pFrame->index,pFrame->PixFormat.u_Fps);
             TST_USBCam_SAVE_FRAME_RES(pUSBCam,pFrame);
         }
     }
