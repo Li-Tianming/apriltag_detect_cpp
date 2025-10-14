@@ -23,6 +23,10 @@
 #include <iomanip>
 #include <thread>
 
+#include <string>
+#include <vector>
+#include <map>
+
 using namespace cv;
 
 class PrecisionTimer {
@@ -307,8 +311,8 @@ void displayCenteredText(const std::string& text,
 
     // 设置字体属性
     int font_face = cv::FONT_HERSHEY_DUPLEX;
-    double font_scale = 2.0;
-    int thickness = 3;
+    double font_scale = 8.0;
+    int thickness = 7;
 
     // 获取文本的包围盒大小
     int baseline = 0;
@@ -344,6 +348,62 @@ void displayCenteredText(const std::string& text,
 }
 
 
+class MyCommandLineParser {
+private:
+    std::map<std::string, std::string> options;
+    std::vector<std::string> arguments;
+    
+public:
+    void parse(int argc, char* argv[]) {
+        for (int i = 1; i < argc; ++i) {
+            std::string arg = argv[i];
+            
+            if (arg.substr(0, 2) == "--") {
+                // 长选项 --option=value 或 --option value
+                size_t equal_pos = arg.find('=');
+                if (equal_pos != std::string::npos) {
+                    std::string key = arg.substr(2, equal_pos - 2);
+                    std::string value = arg.substr(equal_pos + 1);
+                    options[key] = value;
+                } else {
+                    std::string key = arg.substr(2);
+                    if (i + 1 < argc && argv[i + 1][0] != '-') {
+                        options[key] = argv[++i];
+                    } else {
+                        options[key] = ""; // 标志选项
+                    }
+                }
+            } else if (arg[0] == '-') {
+                // 短选项 -o value 或 -abc
+                std::string key = arg.substr(1);
+                if (i + 1 < argc && argv[i + 1][0] != '-') {
+                    options[key] = argv[++i];
+                } else {
+                    options[key] = ""; // 标志选项
+                }
+            } else {
+                arguments.push_back(arg);
+            }
+        }
+    }
+    
+    bool hasOption(const std::string& option) const {
+        return options.find(option) != options.end();
+    }
+    
+    std::string getOption(const std::string& option, const std::string& defaultValue = "") const {
+        auto it = options.find(option);
+        if (it != options.end()) {
+            return it->second;
+        }
+        return defaultValue;
+    }
+    
+    const std::vector<std::string>& getArguments() const {
+        return arguments;
+    }
+};
+
 int main(int argc, char *argv[])
 {
 
@@ -351,10 +411,29 @@ int main(int argc, char *argv[])
     signal(SIGQUIT,SIG_QUIT);
 
     int32_t fd;
+
+    MyCommandLineParser parser;
+    parser.parse(argc, argv);
+    
+    if (parser.hasOption("help") || argc == 1) {
+        std::cout << "Usage: " << argv[0] << " [OPTIONS]" << std::endl;
+        std::cout << "Options:" << std::endl;
+        std::cout << "  --help                 Show this help" << std::endl;
+        std::cout << "  --version              Show version" << std::endl;
+        std::cout << "  --list [COUNT]         List items" << std::endl;
+        std::cout << "  --run [NAME]           Run program" << std::endl;
+        return 0;
+    }
     
     /************************************************
     video stream control
     ************************************************/
+
+	bool listdevice = false;
+
+	if (parser.hasOption("list") || argc == 1) {
+		listdevice = true;
+	}
 
     v4l2_dev_sys_data_t *pdevinfo   = NULL;
 
@@ -387,7 +466,9 @@ int main(int argc, char *argv[])
         fprintf(stdout, "location %s\r\n",   pdevinfo[i].location);
     }
 
-
+	if(listdevice==true){
+		return 0;
+	}
     void* pUSBCam =
     TST_USBCam_CREATE_DEVICE_POINT     (pdevinfo[0]);
 
