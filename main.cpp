@@ -431,7 +431,7 @@ int main(int argc, char *argv[])
 
 	bool listdevice = false;
 
-	if (parser.hasOption("list") || argc == 1) {
+	if (parser.hasOption("list")) {
 		listdevice = true;
 	}
 
@@ -469,10 +469,22 @@ int main(int argc, char *argv[])
 	if(listdevice==true){
 		return 0;
 	}
-	void* pUSBCam =
-		TST_USBCam_CREATE_DEVICE_POINT     (pdevinfo[0]);
 
-	fd = open(pdevinfo[0].Device_Path, O_RDWR | O_NONBLOCK, 0);
+	int camera_index = 0;
+	if (parser.hasOption("run")) {
+
+		std::string count_str = parser.getOption("run", "0");
+		int camera_index = std::stoi(count_str);
+		if((camera_index > ret - 1) || (camera_index < 0)){
+			std::cout << "Camera " << camera_index << " out off range..." << std::endl;
+			return 0;
+		}
+		std::cout << "Runing " << camera_index << " camera..." << std::endl;
+	}
+	void* pUSBCam =
+		TST_USBCam_CREATE_DEVICE_POINT     (pdevinfo[camera_index]);
+
+	fd = open(pdevinfo[camera_index].Device_Path, O_RDWR | O_NONBLOCK, 0);
 
 	/************************************************
 	  在进行开启视频流之前，需打开设备，并将设备描述符传入，如过之前有打开过，将之前打开过的设备描述符传入即可
