@@ -177,6 +177,15 @@ private:
                 case 'C': case 'c': color = "#CCCCFF"; break;
                 case 'D': case 'd': color = "#FFFFCC"; break;
                 case 'E': case 'e': color = "#FFCCFF"; break;
+                case '1':           color = "#FFCCCC"; break;
+                case '2':           color = "#CCFFCC"; break;
+                case '3':           color = "#CCCCFF"; break;
+                case '4':           color = "#FFFFCC"; break;
+                case '5':           color = "#FFCCFF"; break;
+                case '6':           color = "#FFCCCC"; break;
+                case '7':           color = "#CCFFCC"; break;
+                case '8':           color = "#CCCCFF"; break;
+                case '9':           color = "#FFFFCC"; break;
                 default: color = "#E0E0E0"; break;
             }
             
