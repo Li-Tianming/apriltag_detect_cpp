@@ -20,11 +20,13 @@ struct NodeConfig {
     int local_cmd_port;                // 本地命令端口
     std::string log_level;             // 日志级别
     int heartbeat_interval;            // 心跳间隔(ms)
+    bool open_preview;                 // 是否创建预览窗口
+
     
     NodeConfig() : is_master(false), node_id(0), 
                   master_data_port(5555), master_cmd_port(5556),
                   local_data_port(6000), local_cmd_port(7000),
-                  heartbeat_interval(3000) {}
+                  heartbeat_interval(3000), open_preview(false) {}
 };
 
 class ConfigReader {
@@ -150,6 +152,8 @@ public:
         config.local_cmd_port = getValue("local.cmd_port", 7000);
         config.log_level = getValue("log.level", std::string("info"));
         config.heartbeat_interval = getValue("heartbeat.interval", 3000);
+        config.open_preview = getValue("node.open_preview", false);
+
         
         return config;
     }

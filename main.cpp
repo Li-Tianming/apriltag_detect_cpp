@@ -462,7 +462,8 @@ int main(int argc, char *argv[])
     std::cout << "  主节点IP: " << config.master_ip << std::endl;
     std::cout << "  数据端口: " << config.master_data_port << std::endl;
     std::cout << "  命令端口: " << config.master_cmd_port << std::endl;
-    
+    std::cout << "  预览窗口: " << config.open_preview << std::endl;
+    	
     zmq::context_t context(1);
     zmq::socket_t socket(context, ZMQ_PUB);
 
@@ -614,7 +615,9 @@ int main(int argc, char *argv[])
 
 	PrecisionTimer id_display_timer;
 
-	displayCenteredText("X");
+	if(config.open_preview){
+		displayCenteredText("X");
+	}
 
 	while(EXIT)
 	{
@@ -674,7 +677,9 @@ int main(int argc, char *argv[])
 
 				id_to_display = std::to_string(det->id);
 				id_display_timer.start();
-				displayCenteredText(id_to_display);
+				if(config.open_preview){
+					displayCenteredText(id_to_display);
+				}
 
 
 				std::string message = std::to_string(config.node_id) + ":" + id_to_display;
@@ -695,7 +700,9 @@ int main(int argc, char *argv[])
 				// display id 3 second
 
 				id_display_timer.stop();
-				displayCenteredText("X");
+				if(config.open_preview){
+					displayCenteredText("X");
+				}
 			}
 
 			// 释放检测结果
@@ -703,7 +710,9 @@ int main(int argc, char *argv[])
 
 
 			// 创建可调整大小的窗口
-			cv::namedWindow("JPEG Viewer", cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+			if(config.open_preview){
+				cv::namedWindow("JPEG Viewer", cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+			}
 
 			// // 显示图像
 			// cv::imshow("JPEG Viewer", frame);
