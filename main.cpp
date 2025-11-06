@@ -695,16 +695,18 @@ int main(int argc, char *argv[])
 				
 				std::cout << "相对距离(标签像素尺寸): " << avg_size << " 像素" << std::endl;
 
-				std::string message = std::to_string(config.node_id) + ":" + id_to_display;
+				if(avg_size > config.relative_distance){
+					std::string message = std::to_string(config.node_id) + ":" + id_to_display;
         
-				zmq::message_t zmq_msg(message.size());
-				memcpy(zmq_msg.data(), message.c_str(), message.size());
-				
-				try {
-					socket.send(zmq_msg, zmq::send_flags::none);
-					std::cout << "节点 " << config.node_id << " 发送: " << message << std::endl;
-				} catch (const zmq::error_t& e) {
-					std::cerr << "发送失败: " << e.what() << std::endl;
+					zmq::message_t zmq_msg(message.size());
+					memcpy(zmq_msg.data(), message.c_str(), message.size());
+					
+					try {
+						socket.send(zmq_msg, zmq::send_flags::none);
+						std::cout << "节点 " << config.node_id << " 发送: " << message << std::endl;
+					} catch (const zmq::error_t& e) {
+						std::cerr << "发送失败: " << e.what() << std::endl;
+					}						
 				}
 		
 			}
