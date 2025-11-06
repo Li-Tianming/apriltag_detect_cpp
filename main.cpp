@@ -413,6 +413,12 @@ class MyCommandLineParser {
 		}
 };
 
+double distanceBetweenCorners(apriltag_detection_t *det, int i, int j) {
+	double dx = det->p[i][0] - det->p[j][0];
+	double dy = det->p[i][1] - det->p[j][1];
+	return sqrt(dx*dx + dy*dy);
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -463,6 +469,7 @@ int main(int argc, char *argv[])
     std::cout << "  数据端口: " << config.master_data_port << std::endl;
     std::cout << "  命令端口: " << config.master_cmd_port << std::endl;
     std::cout << "  预览窗口: " << config.open_preview << std::endl;
+    std::cout << "  标签相对距离阈值: " << config.relative_distance << std::endl;
     	
     zmq::context_t context(1);
     zmq::socket_t socket(context, ZMQ_PUB);
@@ -681,6 +688,12 @@ int main(int argc, char *argv[])
 					displayCenteredText(id_to_display);
 				}
 
+				// 方法2: 使用角点信息推断距离
+				double width = distanceBetweenCorners(det, 0, 1);
+				double height = distanceBetweenCorners(det, 1, 2);
+				double avg_size = (width + height) / 2.0;
+				
+				std::cout << "相对距离(标签像素尺寸): " << avg_size << " 像素" << std::endl;
 
 				std::string message = std::to_string(config.node_id) + ":" + id_to_display;
         

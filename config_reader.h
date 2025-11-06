@@ -21,12 +21,14 @@ struct NodeConfig {
     std::string log_level;             // 日志级别
     int heartbeat_interval;            // 心跳间隔(ms)
     bool open_preview;                 // 是否创建预览窗口
+    int relative_distance;             // 标签相对距离估计阈值，大于该值才会发送
 
     
     NodeConfig() : is_master(false), node_id(0), 
                   master_data_port(5555), master_cmd_port(5556),
                   local_data_port(6000), local_cmd_port(7000),
-                  heartbeat_interval(3000), open_preview(false) {}
+                  heartbeat_interval(3000), open_preview(false),
+                  relative_distance(50) {}
 };
 
 class ConfigReader {
@@ -153,6 +155,7 @@ public:
         config.log_level = getValue("log.level", std::string("info"));
         config.heartbeat_interval = getValue("heartbeat.interval", 3000);
         config.open_preview = getValue("node.open_preview", false);
+        config.relative_distance = getValue("node.relative_distance", 50);
 
         
         return config;
