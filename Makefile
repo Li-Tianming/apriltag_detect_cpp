@@ -92,7 +92,7 @@ install_deps:
 create_configs:
 	@echo "创建示例配置文件..."
 	@echo "# 主节点配置文件\nnode.is_master = true\nnode.id = 1\nmaster.data_port = 5555\nmaster.cmd_port = 5556\nlocal.data_port = 6000\nlocal.cmd_port = 7000\nheartbeat.interval = 3000\nlog.level = info" > master_config.conf
-	@echo "# 从节点配置文件\nnode.is_master = false\nnode.id = 2\nmaster.ip = localhost\nmaster.data_port = 5555\nmaster.cmd_port = 5556\nlocal.data_port = 6002\nlocal.cmd_port = 7002\nheartbeat.interval = 3000\nlog.level = info\nnode.open_preview = false\nnode.relative_distance  = false" > slave_config.conf
+	@echo "# 从节点配置文件\nnode.is_master = false\nnode.id = 2\nmaster.ip = localhost\nmaster.data_port = 5555\nmaster.cmd_port = 5556\nlocal.data_port = 6002\nlocal.cmd_port = 7002\nheartbeat.interval = 3000\nlog.level = info\nnode.open_preview = false\nnode.relative_distance  = 50" > slave_config.conf
 	@echo "示例配置文件创建完成: master_config.conf, slave_config.conf"
 
 # 运行 OpenCV 主程序
