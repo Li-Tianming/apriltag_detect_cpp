@@ -727,11 +727,11 @@ int main(int argc, char *argv[])
 			// 创建可调整大小的窗口
 			if(config.open_preview){
 				cv::namedWindow("JPEG Viewer", cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+				// // 显示图像
+				cv::imshow("JPEG Viewer", frame);
+				// cv::imshow("JPEG Viewer", result_image);
 			}
 
-			// // 显示图像
-			// cv::imshow("JPEG Viewer", frame);
-			// cv::imshow("JPEG Viewer", result_image);
 
 			// // 打印图像信息
 			// std::cout << "成功显示图像: "
