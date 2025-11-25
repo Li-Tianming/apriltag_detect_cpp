@@ -35,6 +35,24 @@
 #include <cstdlib>
 #include "config_reader.h"
 
+ #include <iostream>
+ #include <thread>
+ #include <atomic>
+ #include <vector>
+ #include <string>
+ #include <iomanip>
+ #include <chrono>
+ #include <sstream>
+ 
+ // MAVLink 头文件
+ #include "common/mavlink.h"
+ 
+ // 串口通信头文件 (Linux)
+ #include <fcntl.h>
+ #include <termios.h>
+ #include <unistd.h>
+
+
 
 using namespace cv;
 
@@ -418,6 +436,334 @@ double distanceBetweenCorners(apriltag_detection_t *det, int i, int j) {
 	double dy = det->p[i][1] - det->p[j][1];
 	return sqrt(dx*dx + dy*dy);
 }
+
+class MavlinkCommunicator {
+private:
+    // 串口配置
+    std::string port_;
+    int baudrate_;
+    int serial_fd_;
+    
+    // 系统配置
+    uint8_t system_id_;
+    uint8_t component_id_;
+    uint8_t target_system_;
+    uint8_t target_component_;
+    
+    // 控制标志
+    std::atomic<bool> running_;
+    std::thread receive_thread_;
+    std::thread send_thread_;
+    
+    // 统计信息
+    uint32_t packets_received_;
+    uint32_t packets_sent_;
+    uint32_t heartbeat_count_;
+    
+    // 连接状态
+    uint32_t last_heartbeat_time_;
+    bool connection_ok_;
+    
+    // RGB 状态
+    uint8_t rgb_red_;
+    uint8_t rgb_green_;
+    uint8_t rgb_blue_;
+
+public:
+    MavlinkCommunicator(const std::string& port = "/dev/ttyS1", 
+                       int baudrate = 57600,
+                       uint8_t sys_id = 255, 
+                       uint8_t comp_id = 0,
+                       uint8_t target_sys = 1,
+                       uint8_t target_comp = 1)
+        : port_(port), baudrate_(baudrate), 
+          system_id_(sys_id), component_id_(comp_id),
+          target_system_(target_sys), target_component_(target_comp),
+          running_(false), serial_fd_(-1),
+          packets_received_(0), packets_sent_(0), heartbeat_count_(0),
+          last_heartbeat_time_(0), connection_ok_(false),
+          rgb_red_(0), rgb_green_(0), rgb_blue_(0) {
+    }
+    
+    ~MavlinkCommunicator() {
+        disconnect();
+    }
+    
+    // 连接到串口
+    bool connect() {
+        serial_fd_ = open(port_.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
+        if (serial_fd_ < 0) {
+            std::cerr << "Error opening serial port: " << port_ << std::endl;
+            return false;
+        }
+        
+        // 配置串口
+        struct termios tty;
+        if (tcgetattr(serial_fd_, &tty) != 0) {
+            std::cerr << "Error getting terminal attributes" << std::endl;
+            return false;
+        }
+        
+        cfsetospeed(&tty, B57600);
+        cfsetispeed(&tty, B57600);
+        
+        tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8; // 8位数据
+        tty.c_iflag &= ~IGNBRK; // 禁用中断处理
+        tty.c_lflag = 0; // 无信号字符，无回显
+        tty.c_oflag = 0; // 无remapping，无延迟
+        tty.c_cc[VMIN]  = 0; // 读取不需要字符
+        tty.c_cc[VTIME] = 5; // 0.5秒读取超时
+        
+        tty.c_iflag &= ~(IXON | IXOFF | IXANY); // 禁用软件流控
+        tty.c_cflag |= (CLOCAL | CREAD); // 忽略调制解调器控制线，启用接收
+        tty.c_cflag &= ~(PARENB | PARODD); // 无奇偶校验
+        tty.c_cflag &= ~CSTOPB; // 1位停止位
+        tty.c_cflag &= ~CRTSCTS; // 禁用硬件流控
+        
+        if (tcsetattr(serial_fd_, TCSANOW, &tty) != 0) {
+            std::cerr << "Error setting terminal attributes" << std::endl;
+            return false;
+        }
+        
+        std::cout << "Connected to " << port_ << " at " << baudrate_ << " baud" << std::endl;
+        return true;
+    }
+    
+    // 断开连接
+    void disconnect() {
+        running_ = false;
+        
+        if (receive_thread_.joinable()) {
+            receive_thread_.join();
+        }
+        if (send_thread_.joinable()) {
+            send_thread_.join();
+        }
+        
+        if (serial_fd_ >= 0) {
+            close(serial_fd_);
+            serial_fd_ = -1;
+        }
+        
+        std::cout << "Disconnected" << std::endl;
+    }
+    
+    // 开始通信
+    bool start() {
+        if (!connect()) {
+            return false;
+        }
+        
+        running_ = true;
+        
+        // 启动接收线程
+        receive_thread_ = std::thread(&MavlinkCommunicator::receiveLoop, this);
+        
+        // 启动发送线程
+        send_thread_ = std::thread(&MavlinkCommunicator::sendLoop, this);
+        
+        std::cout << "MAVLink communication started" << std::endl;
+        return true;
+    }
+    
+    // 停止通信
+    void stop() {
+        disconnect();
+    }
+    
+    // 接收循环
+    void receiveLoop() {
+        mavlink_status_t status;
+        mavlink_message_t msg;
+        
+        uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+        
+        while (running_) {
+            // 读取串口数据
+            int bytes_read = read(serial_fd_, buffer, sizeof(buffer));
+            
+            if (bytes_read > 0) {
+                for (int i = 0; i < bytes_read; i++) {
+                    // 解析 MAVLink 消息
+                    if (mavlink_parse_char(MAVLINK_COMM_0, buffer[i], &msg, &status)) {
+                        handleMavlinkMessage(&msg);
+                        packets_received_++;
+                    }
+                }
+            } else if (bytes_read < 0) {
+                std::cerr << "Error reading from serial port" << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+    }
+    
+    // 发送循环
+    void sendLoop() {
+        auto last_heartbeat = std::chrono::steady_clock::now();
+        auto last_status_check = std::chrono::steady_clock::now();
+        
+        while (running_) {
+            auto now = std::chrono::steady_clock::now();
+            
+            // 发送心跳 (1Hz)
+            if (now - last_heartbeat >= std::chrono::seconds(1)) {
+                sendHeartbeat();
+                last_heartbeat = now;
+            }
+            
+            // 检查连接状态 (每5秒)
+            if (now - last_status_check >= std::chrono::seconds(5)) {
+                checkConnection();
+                last_status_check = now;
+            }
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+    
+    // 处理接收到的 MAVLink 消息
+    void handleMavlinkMessage(mavlink_message_t* msg) {
+        switch (msg->msgid) {
+            case MAVLINK_MSG_ID_HEARTBEAT:
+                {
+                    mavlink_heartbeat_t heartbeat;
+                    mavlink_msg_heartbeat_decode(msg, &heartbeat);
+                    last_heartbeat_time_ = getCurrentTimeMs();
+                    heartbeat_count_++;
+                    connection_ok_ = true;
+                    
+                    // 可选：打印心跳信息用于调试
+                    // std::cout << "Heartbeat from system " << (int)msg->sysid << std::endl;
+                }
+                break;
+                
+            case MAVLINK_MSG_ID_STATUSTEXT:
+                {
+                    mavlink_statustext_t status_text;
+                    mavlink_msg_statustext_decode(msg, &status_text);
+                    std::cout << "Arduino: " << status_text.text << std::endl;
+                }
+                break;
+                
+            default:
+                // 忽略其他消息
+                // std::cout <<"Recieved mavlink message id "<< (int)msg->msgid << " from system " << (int)msg->sysid << std::endl;
+                break;
+        }
+    }
+    
+    // 发送心跳
+    void sendHeartbeat() {
+        mavlink_message_t msg;
+        
+        mavlink_msg_heartbeat_pack(
+            system_id_, component_id_,
+            &msg,
+            MAV_TYPE_GCS,           // 类型：地面站
+            MAV_AUTOPILOT_INVALID,  // 自动驾驶仪：无
+            MAV_MODE_MANUAL_ARMED,  // 模式：手动已解锁
+            0,                      // 自定义模式
+            MAV_STATE_ACTIVE        // 状态：活跃
+        );
+        
+        sendMavlinkMessage(&msg);
+        packets_sent_++;
+    }
+    
+    // 发送 RGB LED 颜色命令
+    void sendRGBCommand(uint8_t red, uint8_t green, uint8_t blue) {
+        mavlink_message_t msg;
+        
+        // 更新内部状态
+        rgb_red_ = red;
+        rgb_green_ = green;
+        rgb_blue_ = blue;
+        
+        // 将 RGB 值 (0-255) 映射到 RC 通道值 (1000-2000)
+        uint16_t rc_red = red;
+        uint16_t rc_green = green;
+        uint16_t rc_blue = blue;
+        
+        mavlink_msg_rc_channels_override_pack(
+            system_id_, component_id_,
+            &msg,
+            target_system_,     // 目标系统
+            target_component_,  // 目标组件
+            rc_red,             // 通道1: 红色
+            rc_green,           // 通道2: 绿色
+            rc_blue,            // 通道3: 蓝色
+            UINT16_MAX,         // 通道4: 未使用
+            UINT16_MAX,         // 通道5: 未使用
+            UINT16_MAX,         // 通道6: 未使用
+            UINT16_MAX,         // 通道7: 未使用
+            UINT16_MAX,         // 通道8: 未使用
+            UINT16_MAX,         // 通道9: 未使用
+            UINT16_MAX,         // 通道10: 未使用
+            UINT16_MAX,         // 通道11: 未使用
+            UINT16_MAX,         // 通道12: 未使用
+            UINT16_MAX,         // 通道13: 未使用
+            UINT16_MAX,         // 通道14: 未使用
+            UINT16_MAX,         // 通道15: 未使用
+            UINT16_MAX,         // 通道16: 未使用
+            UINT16_MAX,         // 通道17: 未使用
+            UINT16_MAX          // 通道18: 未使用
+        );
+        
+        sendMavlinkMessage(&msg);
+        packets_sent_++;
+        
+        std::cout << "Sent RGB command: R=" << (int)red 
+                  << " G=" << (int)green << " B=" << (int)blue << std::endl;
+    }
+        
+    // 发送 MAVLink 消息
+    void sendMavlinkMessage(mavlink_message_t* msg) {
+        uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+        uint16_t len = mavlink_msg_to_send_buffer(buffer, msg);
+        
+        if (write(serial_fd_, buffer, len) != len) {
+            std::cerr << "Error writing to serial port" << std::endl;
+        }
+    }
+    
+    // 检查连接状态
+    void checkConnection() {
+        uint32_t current_time = getCurrentTimeMs();
+        if (current_time - last_heartbeat_time_ > 5000) { // 5秒无心跳认为断开
+            connection_ok_ = false;
+            std::cout << "Connection lost!" << std::endl;
+        } else if (!connection_ok_) {
+            connection_ok_ = true;
+            std::cout << "Connection restored!" << std::endl;
+        }
+    }
+    
+    // 获取当前时间（毫秒）
+    uint32_t getCurrentTimeMs() {
+        auto now = std::chrono::steady_clock::now();
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            now.time_since_epoch()).count();
+    }
+    
+    // 获取连接状态
+    bool isConnected() const {
+        return connection_ok_;
+    }
+    
+    // 获取统计信息
+    void getStats(uint32_t& received, uint32_t& sent, uint32_t& heartbeats) const {
+        received = packets_received_;
+        sent = packets_sent_;
+        heartbeats = heartbeat_count_;
+    }
+    
+    // 获取当前 RGB 状态
+    void getRGBState(uint8_t& red, uint8_t& green, uint8_t& blue) const {
+        red = rgb_red_;
+        green = rgb_green_;
+        blue = rgb_blue_;
+    }
+};
 
 int main(int argc, char *argv[])
 {

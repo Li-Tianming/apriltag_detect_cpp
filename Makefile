@@ -68,7 +68,7 @@ check_deps:
 
 # 主 OpenCV 程序
 $(TARGET): $(OBJ)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(OPENCV_LIBS) $(APRILTAG_LIBS) $(ZMQ_LIBS)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(OPENCV_LIBS) $(APRILTAG_LIBS) $(ZMQ_LIBS) $(MAVLINK_LIBS) $(SERIAL_LIBS)
 
 # ZeroMQ 主节点程序
 $(ZMQ_MASTER_TARGET): $(ZMQ_MASTER_OBJ)
@@ -84,7 +84,7 @@ $(MAVLINK_TARGET): $(MAVLINK_OBJ)
 
 # 编译规则 - OpenCV 主程序
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(OPENCV_FLAGS) -I$(APRILTAG_INC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(OPENCV_FLAGS) -I$(APRILTAG_INC) -I$(MAVLINK_INC) -c $< -o $@
 
 # 编译规则 - ZeroMQ 主节点
 $(ZMQ_MASTER_OBJ): $(ZMQ_MASTER_SRC) $(CONFIG_READER_H)
