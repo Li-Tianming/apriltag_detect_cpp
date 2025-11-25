@@ -192,14 +192,14 @@
              
              // 发送心跳 (1Hz)
              if (now - last_heartbeat >= std::chrono::seconds(1)) {
-                 sendHeartbeat();
+                //  sendHeartbeat();
                  last_heartbeat = now;
              }
              
              // 检查连接状态 (每5秒)
              if (now - last_status >= std::chrono::seconds(5)) {
-                 checkConnection();
-                 displayStatus();
+                //  checkConnection();
+                //  displayStatus();
                  last_status = now;
              }
              
