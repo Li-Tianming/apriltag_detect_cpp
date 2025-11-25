@@ -950,6 +950,12 @@ int main(int argc, char *argv[])
 		displayCenteredText("X");
 	}
 
+	std::string port = "/dev/ttyS1";
+    
+	MavlinkCommunicator comm(port, 57600);
+	comm.connect();
+
+
 	while(EXIT)
 	{
 		Frame_Buffer_Data*pFrame = TST_USBCam_GET_FRAME_BUFF(pUSBCam,0);
@@ -1030,7 +1036,11 @@ int main(int argc, char *argv[])
 						std::cout << "节点 " << config.node_id << " 发送: " << message << std::endl;
 					} catch (const zmq::error_t& e) {
 						std::cerr << "发送失败: " << e.what() << std::endl;
-					}						
+					}
+
+					// 发送给Ardunio显示
+					comm.sendRGBCommand(255, 0, 0);
+						
 				}
 		
 			}
