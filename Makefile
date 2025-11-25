@@ -68,7 +68,7 @@ check_deps:
 
 # 主 OpenCV 程序
 $(TARGET): $(OBJ)
-	$(CXX) $(CXXFLAGS) $^ -o $@ $(OPENCV_LIBS) $(APRILTAG_LIBS)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(OPENCV_LIBS) $(APRILTAG_LIBS) $(ZMQ_LIBS)
 
 # ZeroMQ 主节点程序
 $(ZMQ_MASTER_TARGET): $(ZMQ_MASTER_OBJ)
