@@ -1,58 +1,36 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
+#include <apriltag/apriltag.h>
+#include <apriltag/tag36h11.h>
+
+#include <zmq.hpp>
+
+#include "common/mavlink.h"
+#include "./include/USBCam_API/USBCam_API.h"
+#include "config_reader.h"
 
 #include <iostream>
-
+#include <string>
+#include <vector>
+#include <map>
+#include <memory>
+#include <sstream>
+#include <iomanip>
+#include <chrono>
+#include <thread>
+#include <atomic>
+#include <random>
+#include <cstdlib>
 
 #include <pthread.h>
 #include <system_error>
 #include <unistd.h>
-#include <memory>
 #include <signal.h>
 #include <fcntl.h>
-
-#include "./include/USBCam_API/USBCam_API.h"        //videoStreaming Control
-
-#include <apriltag/apriltag.h>
-#include <apriltag/tag36h11.h>
-#include <opencv2/imgproc/imgproc.hpp>
-
-#include <iostream>
-#include <chrono>
-#include <iomanip>
-#include <thread>
-
-#include <string>
-#include <vector>
-#include <map>
-
-#include <zmq.hpp>
-#include <iostream>
-#include <thread>
-#include <chrono>
-#include <random>
-#include <cstdlib>
-#include "config_reader.h"
-
- #include <iostream>
- #include <thread>
- #include <atomic>
- #include <vector>
- #include <string>
- #include <iomanip>
- #include <chrono>
- #include <sstream>
- 
- // MAVLink 头文件
- #include "common/mavlink.h"
- 
- // 串口通信头文件 (Linux)
- #include <fcntl.h>
- #include <termios.h>
- #include <unistd.h>
-
-
+#include <termios.h>
 
 using namespace cv;
 
