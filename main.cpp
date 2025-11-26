@@ -32,6 +32,9 @@
 #include <fcntl.h>
 #include <termios.h>
 
+#include <tuple>
+#include <cstdint>  // 添加 uint8_t 的头文件
+
 using namespace cv;
 
 class PrecisionTimer {
@@ -743,6 +746,58 @@ public:
     }
 };
 
+// 使用map存储颜色映射
+std::map<char, std::tuple<uint8_t, uint8_t, uint8_t>> colorMap = {
+    {'0', {255, 107, 107}},    // 红色
+    {'1', {78, 205, 196}},     // 青绿色
+    {'2', {69, 183, 209}},     // 蓝色
+    {'3', {150, 206, 180}},    // 绿色
+    {'4', {255, 234, 167}},    // 黄色
+    {'5', {221, 160, 221}},    // 紫色
+    {'6', {255, 160, 122}},    // 橙色
+    {'7', {152, 216, 200}},    // 薄荷绿
+    {'8', {247, 220, 111}},    // 金色
+    {'9', {187, 143, 206}}    // 淡紫色
+    // {'K', {133, 193, 233}}     // 天蓝色
+};
+
+// 获取RGB值的函数
+void getRGB(char key, uint8_t& r, uint8_t& g, uint8_t& b) {
+    auto it = colorMap.find(key);
+    if (it != colorMap.end()) {
+        r = std::get<0>(it->second);
+        g = std::get<1>(it->second);
+        b = std::get<2>(it->second);
+    } else {
+        r = g = b = 0; // 默认黑色
+    }
+}
+
+// 获取调整亮度后的RGB值
+void getAdjustedRGB(char key, float brightness, uint8_t& r, uint8_t& g, uint8_t& b) {
+    uint8_t orig_r, orig_g, orig_b;
+    getRGB(key, orig_r, orig_g, orig_b);
+    
+    // 等比例调整亮度
+    r = static_cast<uint8_t>(orig_r * brightness);
+    g = static_cast<uint8_t>(orig_g * brightness);
+    b = static_cast<uint8_t>(orig_b * brightness);
+}
+
+// Gamma校正函数（可选，用于更自然的亮度变化）
+void getGammaAdjustedRGB(char key, float brightness, uint8_t& r, uint8_t& g, uint8_t& b) {
+    uint8_t orig_r, orig_g, orig_b;
+    getRGB(key, orig_r, orig_g, orig_b);
+    
+    // 应用Gamma校正（通常gamma=2.2）
+    float gamma = 2.2;
+    float adjusted = powf(brightness, gamma);
+    
+    r = static_cast<uint8_t>(orig_r * adjusted);
+    g = static_cast<uint8_t>(orig_g * adjusted);
+    b = static_cast<uint8_t>(orig_b * adjusted);
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -1038,9 +1093,20 @@ int main(int argc, char *argv[])
 						std::cerr << "发送失败: " << e.what() << std::endl;
 					}
 
+					// 不同亮度级别
+					float brightnessLevels[] = {0.1f, 0.3f, 0.5f, 0.7f, 1.0f};
+
+					char colorKey = '0'; // 红色
+    				uint8_t r, g, b;
+
+					if (!id_to_display.empty()) {
+							colorKey = id_to_display[0];  // 提取第一个字符
+					}
+					
+					getAdjustedRGB(colorKey, brightnessLevels[1], r, g, b);
+
 					// 发送给Ardunio显示
-					comm.sendRGBCommand(255, 0, 0);
-						
+					comm.sendRGBCommand(r, g, b);		
 				}
 		
 			}
