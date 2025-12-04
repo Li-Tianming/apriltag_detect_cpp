@@ -85,3 +85,7 @@ sudo systemctl status gpio-shutdown.service
 
 #### 4. 查看实时日志
 sudo journalctl -u gpio-shutdown.service -f
+
+#### 5. 设置服务开机自启动
+sudo systemctl enable gpio-shutdown.service
+
